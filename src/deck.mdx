@@ -1,0 +1,322 @@
+import { Head, Image, Appear } from 'mdx-deck'
+import { Split, FullScreenCode } from 'mdx-deck/layouts'
+import { CodeSurfer } from "mdx-deck-code-surfer";
+
+import { Cover } from './Cover';
+import { Intro } from './Intro';
+import { Img } from './Img';
+import { InlineImg } from './InlineImg';
+import { Thanks } from './Thanks';
+import { Feedback } from './Feedback';
+
+export { default as theme } from './theme'
+
+<Head>
+  <title>Practical GraphQL for Relay</title>
+</Head>
+
+<Cover />
+
+---
+
+<Intro />
+
+---
+
+# Overview
+
+<ul>
+    <Appear>
+        <li>
+            Core assumptions
+        </li>
+        <li>
+            Object Identification
+        </li>
+        <li>
+            Connections
+        </li>
+        <li>
+            Mutations
+        </li>
+        <li>
+            Pratical GraphQL tips
+        </li>
+    </Appear>
+</ul>
+
+---
+
+# Core assumptions
+
+<ul>
+    <Appear>
+        <li>
+          A mechanism for refetching an object.
+        </li>
+        <li>
+          A description of how to page through connections.
+        </li>
+        <li>
+          Structure around mutations to make them predictable.
+        </li>
+    </Appear>
+</ul>
+
+---
+<CodeSurfer
+    title="Object Identification"
+    lang="graphql"
+    code={`
+{
+   node(id: "User:4") {
+      ... on User {
+         name
+      }
+   }
+}
+    `}
+/>
+---
+<CodeSurfer
+    title="Object Identification"
+    lang="graphql"
+    code={`
+interface Node {
+  """The id of the object."""
+  id: ID!
+}
+    `}
+/>
+---
+
+# Object Identification
+
+<ul>
+    <Appear>
+        <li>
+          Node Interface that has a non-null ID
+        </li>
+        <li>
+          Global unique ID per node
+        </li>
+        <li>
+          GlobalId = base64(type:id)
+        </li>
+        <li>
+          All nodes that implements NodeInterface are refetchable
+        </li>
+    </Appear>
+</ul>
+
+---
+
+<CodeSurfer
+  title="Node Interface"
+  code={require('!raw-loader!./code/NodeInterface.js').default}
+  showNumbers={false}
+  dark={true}
+  lang="javascript"
+/>
+
+---
+
+<CodeSurfer
+  title="Connections"
+  code={`
+{
+  users(
+     first: $first,
+     after: $after,
+     before: $before,
+     last: $last
+  ) {
+    edges {
+      cursor
+      node {
+        id
+        name
+      }
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+  }
+}
+  `}
+  showNumbers={false}
+  dark={true}
+  lang="graphql"
+/>
+---
+
+# What is a Cursor?
+
+A cursor is a pointer to a "list"/"connection", it tells you where you are in a list of items
+
+---
+
+# Forward Pagination
+
+first: 10, after: "mycurrentcursor"
+
+This tell GraphQL to return 10 items after "mycurrentcursor" cursor
+
+---
+# Backward Pagination
+
+last: 10, before: "anothercursor"
+
+This tell GraphQL to return 10 items before "anotercursor" cursor
+
+---
+
+# Mutations
+
+- It should return all necessary data to update your GraphQL client
+
+---
+
+# Mutations that add a new Node/Edge to the Graph
+
+- It should return the new created edge to be add to existing connections
+
+---
+
+<CodeSurfer
+  title="Mutation Add Edge"
+  code={`
+mutation ShipAddMutation($input: ShipAddInput!) {
+    ShipAdd(input: $input) {
+      shipEdge {
+        node {
+          name
+        }
+      }
+    }
+}
+  `}
+  showNumbers={false}
+  dark={true}
+  lang="graphql"
+/>
+---
+
+# Mutations that edit an existing Node
+
+- It should return the edited node
+
+---
+
+<CodeSurfer
+  title="Mutation Edit Node"
+  code={`
+mutation ShipEditMutation($input: ShipEditInput!) {
+    ShipEdit(input: $input) {
+      ship {
+        name
+    }
+  }
+}
+  `}
+  showNumbers={false}
+  dark={true}
+  lang="graphql"
+/>
+---
+
+# Mutation that remove a Node
+
+- It should return the id of removed node
+
+---
+
+<CodeSurfer
+  title="Mutation Remove Node"
+  code={`
+mutation ShipRemoveMutation($input: ShipRemoveInput!) {
+    ShipRemove(input: $input) {
+      deletedNodeId
+    }
+}
+  `}
+  showNumbers={false}
+  dark={true}
+  lang="graphql"
+/>
+---
+
+# Pratical GraphQL Tips
+
+This is based on our experience working with GraphQL since their public release at 2015
+
+---
+
+## Avoid Viewer
+
+- Viewer was a "hacky" solution for Relay Classic where you couldn't do query on QueryType
+- We recommend use fields directly on QueryType instead, so we can avoid confusion
+
+---
+
+## Keep Logged User on GraphQL Context
+
+- As soon as you know who is logged user, add it to your GraphQL context so you can easily access them in any resolver
+- This is also useful to implement viewer can see (security) solutions on resolver based level
+
+---
+
+## Add a me field resolver
+
+- me field on QueryType that resolves to a UserType of the logged user
+- This makes it easy to find out who is logged in your app
+
+---
+
+## Each Node should have a load function
+
+- Each type should have an unique way to be resolved
+- This will make sure that every resolver is always resolving the correct data
+- This also make sure it is easy to add dataloader later on
+- UserLoader.load(context, id)
+
+---
+
+## Create a Dataloader generator per database/resource
+- Check [GraphQL Mongoose Loader](https://github.com/entria/graphql-mongoose-loader#mongoose-dataloader-batch)
+- This make sure all data is resolved in the same way with all optimizations
+
+---
+
+## Create one Connection per database/resource cursor
+- Check [GraphQL Mongoose Connection](https://github.com/entria/graphql-mongoose-loader#connection-from-mongoose-cursor)
+- This make sure all your connections handle cursor and pagination properly
+
+---
+
+## Follow Relay Mutation Input/Output Object pattern
+- Check [graphql-relay](https://github.com/graphql/graphql-relay-js)
+- With an Input Object type in your mutation it is easy to add more fields without breaking old clients
+- The same goes to Output Object type
+
+---
+
+## References
+
+- [Relay Docs about GraphQL Server Specification](https://relay.dev/docs/en/graphql-server-specification)
+- [Object Identification](https://relay.dev/graphql/objectidentification.htm)
+- [Cursor Connections](https://relay.dev/graphql/connections.htm)
+- [Relay Mutations](https://relay.dev/graphql/mutations.htm)
+
+---
+
+## References
+
+- [Relay Mutations Guide](https://relay.dev/docs/en/mutations)
+- [Entria Playground](https://github.com/entria/entria-fullstack)
+- [GraphQL Relay 2015](https://pt-br.reactjs.org/blog/2015/02/20/introducing-relay-and-graphql.html)
+- [Building the New Facebook](https://developers.facebook.com/videos/2019/building-the-new-facebookcom-with-react-graphql-and-relay/)
+- [GraphQL Mongoose](https://github.com/entria/graphql-mongoose-loader#mongoose-dataloader-batch)
